@@ -28,6 +28,10 @@ If you want to import a file relative to root, just prefix the file with /.
 
 `dot_e import /home/ThisIsAUsername/.vimrc`
 
+## Committing your changes
+
+`dot_e commit`
+
 ## Push your changes to your git repository
 
 `dot_e push`
