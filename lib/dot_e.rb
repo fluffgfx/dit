@@ -77,16 +77,39 @@ class DotE < Thor
 
   desc "clone REPO", "Clone a dotty repository."
   def clone(repo)
+    working_dir = Dir.getwd
     # sort of a hacky way to derive repo name
     repo_name = repo.split("/").pop().split(".")[0]
-    Git.clone(repo, repo_name) 
-    p "Success! Cloned #{repo_name}"
-    p "(Honestly, though, you can just use git clone. It's the same.)"
+    repo = Git.clone(repo, repo_name) 
+    if OS.windows?
+      repo.branch('windows').checkout
+    elsif OS.x?
+      repo.branch('osx').checkout
+    elsif OS.linux?
+      # detect linux distro
+      version = `cat /proc/version`
+      if version.include?("Debian")
+        repo.branch('debian').checkout
+      elsif version.include?("Ubuntu")
+        repo.branch('ubuntu').checkout
+      elsif version.include?("RHEL")
+        repo.branch('redhat').checkout
+      elsif version.include?("Arch")
+        repo.branch('arch').checkout
+      elsif version.include?("SUSE")
+        repo.branch('suse').checkout
+      elsif version.include?("Fedora")
+        repo.branch('fedora').checkout
+      end
+    # TODO: Prompt for package install
   end
 
   desc "add FILE", "Add a dotfile to the working tree."
+  option :all, :type => :boolean, :aliases => '-A'
   def add(f)
-    p "add"
+    working_dir = Dir.getwd
+    repo = Git.open(working_dir)
+    options[:all] ? repo.add(:all=>true) : repo.add(f)
   end
 
   desc "import FILE", "Import a dotfile to the repository."
@@ -95,8 +118,12 @@ class DotE < Thor
   end
 
   desc "commit", "Commit your changes to a .e repository."
+  option :message, :required => true, :aliases => '-m'
+  option :global, :type => :boolean, :aliases => '-g'
   def commit()
-    p "commit"
+    working_dir = Dir.getwd
+    repo = Git.open(working_dir)
+    repo.commit(options[:message])
   end
 
   desc "push", "Push your changes to a .e repository."
@@ -119,6 +146,7 @@ class DotE < Thor
     p "os"
   end
 
+  # TODO this should be under subcommands
   desc "package add|rm|list [package]", "Modify the .e package system."
   def package(command, package)
     p "package"
