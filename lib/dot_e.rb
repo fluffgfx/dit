@@ -1,5 +1,6 @@
 require 'thor'
 require 'git'
+require 'os'
 
 class DotE < Thor
   # Fun Fact: .e is a direct descendant of Thor!
@@ -87,7 +88,7 @@ class DotE < Thor
       repo.branch('osx').checkout
     elsif OS.linux?
       # detect linux distro
-      version = `cat /proc/version`
+      version = `cat /etc/*-release`
       if version.include?("Debian")
         repo.branch('debian').checkout
       elsif version.include?("Ubuntu")
@@ -102,6 +103,7 @@ class DotE < Thor
         repo.branch('fedora').checkout
       end
     # TODO: Prompt for package install
+    # TODO: Symlinking
   end
 
   desc "add FILE", "Add a dotfile to the working tree."
@@ -124,6 +126,7 @@ class DotE < Thor
     working_dir = Dir.getwd
     repo = Git.open(working_dir)
     repo.commit(options[:message])
+    # TODO: Symlinking new files
   end
 
   desc "push", "Push your changes to a .e repository."
@@ -143,7 +146,9 @@ class DotE < Thor
 
   desc "os OS", "Set your current OS when it isn't auto detected."
   def os(os)
-    p "os"
+    working_dir = Dir.getwd
+    repo = Git.open(working_dir)
+    repo.branch(os).checkout
   end
 
   # TODO this should be under subcommands
