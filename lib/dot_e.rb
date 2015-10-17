@@ -127,23 +127,25 @@ class DotE < Thor
     end
 
     # symlink files to ~
-    Dir.chdir(File.join(repo_name, ".e", "os_dotfiles") do
+    Dir.chdir(File.join(repo_name, ".e", "os_dotfiles")) do
       Find.find('.') do |d|
         if File.directory?(d)
+          Dir.mkdir(File.join(Dir.home, d.split['os_dotfiles'][1]))
           Dir.entries(d).each do |f|
-            next if f === '.' || f === '..'
+            next if (f === '.' || f === '..')
             abs_f = File.absolute_path(f)
-            rel_f = Dir.home + 
-              File.SEPARATOR  + 
-              abs_f.split("os_dotfiles")[1]
-            File.symlink(abs_f, rel_f)
+            rel_f = File.join(Dir.home, abs_f.split("os_dotfiles")[1])
+            begin
+              File.symlink(abs_f, rel_f)
+            rescue
+              p "This system doesn't support symlinking, sorry"
+              # TODO: this will spam every time it tries to symlink huh
+            end
           end
         end
       end
     end
-
     # TODO: Prompt for package install
-    # TODO: Symlinking
   end
 
   desc "add FILE", "Add a dotfile to the working tree."
@@ -182,7 +184,8 @@ class DotE < Thor
     os_list.each do |os|
       changed_files.split('\n').each do |file|
         if file.split('.').pop() === os
-          file_stream = File.open(file) do |f|
+          file_content = nil
+          File.open(file) do |f|
             file_content = f.read
           end
           file_normal = file.gsub("." + os, "")
@@ -199,12 +202,18 @@ class DotE < Thor
 
   desc "push", "Push your changes to a .e repository."
   def push()
-    p "push"
+    working_dir = Dir.getwd
+    repo = Git.open(working_dir)
+    repo.branches.local.each do |b|
+      repo.branch(b).push
+    end
   end
 
   desc "pull", "Pull your changes from a .e repo."
   def pull()
-    p "pull"
+    working_dir = Dir.getwd
+    repo = Git.open(working_dir)
+    repo.pull
   end
 
   desc "branch OS", "Branch your repo to make OS specific changes."
@@ -215,8 +224,30 @@ class DotE < Thor
   desc "os OS", "Set your current OS when it isn't auto detected."
   def os(os)
     working_dir = Dir.getwd
-    repo = Git.open(working_dir)
-    repo.branch(os).checkout
+    os_dotfiles = Git.open(File.join(working_dir, ".e", "os_dotfiles"))
+    os_dotfiles.branch(os).checkout
+
+    # symlink files to ~
+    # TODO: this can probably be a method
+    Dir.chdir(File.join(repo_name, ".e", "os_dotfiles")) do
+      Find.find('.') do |d|
+        if File.directory?(d)
+          Dir.mkdir(File.join(Dir.home, d.split['os_dotfiles'][1]))
+          Dir.entries(d).each do |f|
+            next if (f === '.' || f === '..')
+            abs_f = File.absolute_path(f)
+            rel_f = Dir.home + 
+              File.SEPARATOR  + 
+              abs_f.split("os_dotfiles")[1]
+            begin
+              File.symlink(abs_f, rel_f)
+            rescue
+              p "This system doesn't support symlinking, sorry"
+            end
+          end
+        end
+      end
+    end
   end
 
   # TODO this should be under subcommands

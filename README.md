@@ -42,26 +42,21 @@ If you want to import a file relative to root, just prefix the file with /.
 
 ## OS Specific dotfiles
 
-`dot_e branch [os]`
+Name your file like this:
 
-e.g.
+`.vimrc.windows`
 
-`dot_e branch os_x`
+It'll be appended to .vimrc, but only on windows systems.
 
-The following will autodetect:
+We also support:
 
-- os\_x (or osx, or macos)
-- windows (or win, or i\_wish\_i\_had\_my\_programming\_system\_right\_now)
-- arch
-- debian
-- ubuntu
-- fedora
-
-If you're not listed, .e will assume not load any OS specific files until you run
-
-`dot_e os [os]`
-
-where OS is the same name as the branch you used.
+- Windows (.windows)
+- Mac OS X (.osx)
+- Arch Linux (.arch)
+- Debian (.debian)
+- Ubuntu (.ubuntu)
+- Redhat (.redhat)
+- Fedora (.fedora)
 
 ## Packages
 
