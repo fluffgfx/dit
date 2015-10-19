@@ -9,4 +9,8 @@ Gem::Specification.new do |s|
   s.files = [ "lib/dit.rb" ]
   s.executables << 'dit'
   s.license = "MIT"
+  s.homepage = "http://github.com/vulpino/dit"
+  s.add_runtime_dependency 'thor'
+  s.add_runtime_dependency 'git'
+  s.add_runtime_dependency 'os'
 end
