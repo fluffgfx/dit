@@ -11,7 +11,7 @@ class Dit < Thor
 
     # Some checks to see if this is already a .e or git repo
     # You'll be stopped if this is already a .e repo
-    if(Dir.exist?(working_dir + "/.e"))
+    if(Dir.exist?(working_dir + "/.dit"))
       p "This is already a .e repo."
       return
     end
@@ -35,7 +35,7 @@ class Dit < Thor
     end
 
     # Make a .e dir and a settings hash to be exported to a file in .e dir
-    Dir.mkdir(working_dir + "/.e")
+    Dir.mkdir(working_dir + "/.dit")
     settings = {}
 
     # If we've already got remotes, use those, or one of those, or prompt
@@ -72,11 +72,11 @@ class Dit < Thor
     
     # create a .gitignore to ignore the os_dotfiles dir
     File.open(File.join(working_dir, ".gitignore"), "a") do |f|
-      f.write ".e/os_dotfiles/"
+      f.write ".dit/os_dotfiles/"
     end
 
     # Write our changes to a JSON file in the .e dir
-    File.open(working_dir + "/.e" + "/settings.json", "a") do |f|
+    File.open(working_dir + "/.dit" + "/settings.json", "a") do |f|
       f.write settings.to_json
     end
   end
@@ -111,14 +111,14 @@ class Dit < Thor
 
     # clone os_dotfiles
     Dir.chdir(repo_name) do
-      if Dir.exist?(".e") 
+      if Dir.exist?(".dit") 
         if os
-          Dir.chdir(".e") do
+          Dir.chdir(".dit") do
             os_dotfiles = Git.clone(repo, "os_dotfiles")
             os_dotfiles.branch(os).checkout
           end
         else
-          Dir.chdir(".e") do
+          Dir.chdir(".dit") do
             os_dotfiles = Git.clone(repo, "os_dotfiles")
             os_dotfiles.branch("master").checkout
           end
@@ -127,7 +127,7 @@ class Dit < Thor
     end
 
     # symlink files to ~
-    Dir.chdir(File.join(repo_name, ".e", "os_dotfiles")) do
+    Dir.chdir(File.join(repo_name, ".dit", "os_dotfiles")) do
       Find.find('.') do |d|
         if File.directory?(d)
           Dir.mkdir(File.join(Dir.home, d.split['os_dotfiles'][1]))
@@ -220,12 +220,12 @@ class Dit < Thor
   desc "os OS", "Set your current OS when it isn't auto detected."
   def os(os)
     working_dir = Dir.getwd
-    os_dotfiles = Git.open(File.join(working_dir, ".e", "os_dotfiles"))
+    os_dotfiles = Git.open(File.join(working_dir, ".dit", "os_dotfiles"))
     os_dotfiles.branch(os).checkout
 
     # symlink files to ~
     # TODO: this can probably be a method
-    Dir.chdir(File.join(repo_name, ".e", "os_dotfiles")) do
+    Dir.chdir(File.join(repo_name, ".dit", "os_dotfiles")) do
       Find.find('.') do |d|
         if File.directory?(d)
           Dir.mkdir(File.join(Dir.home, d.split['os_dotfiles'][1]))
