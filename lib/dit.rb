@@ -73,12 +73,59 @@ class Dit < Thor
     # create a .gitignore to ignore the os_dotfiles dir
     File.open(File.join(working_dir, ".gitignore"), "a") do |f|
       f.write ".dit/os_dotfiles/"
+      f.write "\n"
+      f.write ".dit/local_settings.json"
     end
 
     # Write our changes to a JSON file in the .e dir
     File.open(working_dir + "/.dit" + "/settings.json", "a") do |f|
       f.write settings.to_json
     end
+
+    # commit changes as initial commit
+    repo.add(".dit/settings.json")
+    repo.add(".gitignore")
+    repo.commit("Dit inital commit")
+
+    # make os_dotfiles
+    os = nil
+    if OS.windows?
+      os = 'windows'
+    elsif OS.x?
+      os = 'osx'
+    elsif OS.linux?
+      # cat to the rescue
+      distro = `cat /etc/*-release`
+      if distro.include?("Arch Linux")
+        os = "arch"
+      elsif distro.include?("debian")
+        os = "debian"
+      elsif distro.include?("gentoo")
+        os = "gentoo"
+      elsif distro.include?("redhat")
+        os = "redhat"
+      elsif distro.include?("SuSE")
+        os = "suse"
+      end
+    end
+    repo.branch(os) if os
+
+    if Dir.exist?(".dit") 
+      file_url = "file:///" + File.absolute_path(Dir.getwd)
+      p file_url
+      if os
+        Dir.chdir(".dit") do
+          os_dotfiles = Git.clone(file_url, "os_dotfiles")
+          os_dotfiles.branch(os).checkout
+        end
+      else
+        Dir.chdir(".dit") do
+          os_dotfiles = Git.clone(file_url, "os_dotfiles")
+          os_dotfiles.branch("master").checkout
+        end
+      end
+    end
+    
   end
 
   desc "clone REPO", "Clone a dotty repository."
@@ -112,14 +159,15 @@ class Dit < Thor
     # clone os_dotfiles
     Dir.chdir(repo_name) do
       if Dir.exist?(".dit") 
+        file_url = "file:///" + File.absolute_path(Dir.getwd)
         if os
           Dir.chdir(".dit") do
-            os_dotfiles = Git.clone(repo, "os_dotfiles")
+            os_dotfiles = Git.clone(file_url, "os_dotfiles")
             os_dotfiles.branch(os).checkout
           end
         else
           Dir.chdir(".dit") do
-            os_dotfiles = Git.clone(repo, "os_dotfiles")
+            os_dotfiles = Git.clone(file_url, "os_dotfiles")
             os_dotfiles.branch("master").checkout
           end
         end
@@ -169,8 +217,18 @@ class Dit < Thor
     working_dir = Dir.getwd
     repo = Git.open(working_dir)
     repo.commit(options[:message])
+    settings = nil
+    begin
+      settings = JSON.parse File.open(
+        File.join(working_dir, ".dit", "local_settings.json"), "r").read.close
+    rescue
+      settings = {
+        symlinked: []
+      }
+    end
     
-    # Now, process OS specific files and commit to OS branches
+    # Iterate over all changed files and symlink new ones
+    changed_files = `git show --pretty="format:" --name-only HEAD`
     os_list = [
       'windows',
       'osx',
@@ -181,9 +239,10 @@ class Dit < Thor
       'redhat',
       'fedora'
     ]
-    changed_files = `git show --pretty="format:" --name-only HEAD`
+
     os_list.each do |os|
       changed_files.split('\n').each do |file|
+        file.strip!
         if file.split('.').pop() === os
           file_content = nil
           File.open(file, "r") do |f|
@@ -198,7 +257,30 @@ class Dit < Thor
         end
       end
     end
-    # TODO: Symlinking new files
+
+    # Symlink new files in os_dotfiles
+    Dir.chdir(".dit") do
+      Dir.chdir("os_dotfiles") do
+        Git.open(Dir.getwd).pull
+        os_changed_files = `git show --pretty="format:" --name-only HEAD`
+        os_changed_files.split('\n').each do |file|
+          file.strip! # strip newlines
+          p file
+          next if os_list.include?(file.split('.').pop())
+          next if settings[:symlinked].include?(file) 
+          next if file.include?(".dit")
+          File.symlink(
+            File.absolute_path(file),
+            File.absolute_path(File.join(Dir.home, file)))
+          settings[:symlinked] << file
+        end
+      end
+    end
+
+    File.open(File.join(working_dir, ".dit", "local_settings.json"), "w+") do |f|
+      f.truncate 0
+      f.write settings.to_json
+    end
   end
 
   desc "push", "Push your changes to a .e repository."
@@ -232,14 +314,8 @@ class Dit < Thor
           Dir.entries(d).each do |f|
             next if (f === '.' || f === '..')
             abs_f = File.absolute_path(f)
-            rel_f = Dir.home + 
-              File.SEPARATOR  + 
-              abs_f.split("os_dotfiles")[1]
-            begin
-              File.symlink(abs_f, rel_f)
-            rescue
-              p "This system doesn't support symlinking, sorry"
-            end
+            rel_f = File.join(Dir.home, abs_f.split("os_dotfiles")[1])
+            File.symlink(abs_f, rel_f)
           end
         end
       end
