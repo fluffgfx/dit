@@ -1,4 +1,4 @@
 #!/usr/bin/env ruby
 
-require 'dot_e'
-DotE.start(ARGV)
+require 'dit'
+Dit.start(ARGV)

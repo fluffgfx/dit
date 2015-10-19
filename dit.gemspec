@@ -1,11 +1,12 @@
 Gem::Specification.new do |s|
-  s.name = "dot_e"
+  s.name = "Dit"
   s.version = "0.1"
   s.date = "2015-10-14"
-  s.summary = "A dotfile manager that doesn't suck!"
-  s.description = ".e (Dot E) is a dotfile manager that acts like git and works like magic."
+  s.summary = "Dit is a dotfiles manager that thinks it's git."
+  s.description = "Dit is a dotfiles manager that wraps around git and makes " +
+    "dotfiles easy to manage across devices."
   s.authors = [ "Kyle Fahringer" ]
-  s.files = [ "lib/dot_e.rb" ]
-  s.executables << 'dot_e'
+  s.files = [ "lib/dit.rb" ]
+  s.executables << 'dit'
   s.license = "MIT"
 end

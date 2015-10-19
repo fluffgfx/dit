@@ -3,9 +3,7 @@ require 'git'
 require 'os'
 require 'json'
 
-class DotE < Thor
-  # Fun Fact: .e is a direct descendant of Thor!
-
+class Dit < Thor
   desc "init", "Initialize the current directory as a dotfiles directory."
   def init()
     # Get working dir
