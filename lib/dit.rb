@@ -6,9 +6,6 @@ require 'json'
 class Dit < Thor
   desc "init", "Initialize the current directory as a dit directory."
   def init()
-    # Get working dir
-    working_dir = Dir.getwd
-
     # Some checks to see if this is already a .e or git repo
     # You'll be stopped if this is already a .e repo
     if(Dir.exist?(working_dir + "/.dit"))
@@ -53,7 +50,7 @@ class Dit < Thor
   desc "clone REPO", "Clone a dit repository."
   def clone(repo)
     repo_name = repo.split("/").pop().split(".")[0]
-    repo = Git.clone(repo, repo_name) 
+    Git.clone(repo, repo_name) 
     Dir.chdir(repo_name) do
       clone_os_dotfiles
       symlink_all
@@ -63,24 +60,18 @@ class Dit < Thor
   desc "add FILE", "Add a dotfile to the working tree."
   option :all, :type => :boolean, :aliases => '-A'
   def add(f=nil)
-    working_dir = Dir.getwd
-    repo = Git.open(working_dir)
     options[:all] ? repo.add(:all=>true) : (repo.add(f) if f)
     p "No file specified!" unless (options[:all] || f)
   end
 
   option :message, :required => true, :aliases => '-m'
   def commit()
-    working_dir = Dir.getwd
-    repo = Git.open(working_dir)
     repo.commit(options[:message])
     symlink_unlinked
   end
 
   desc "push", "Push your changes to a dit repository."
   def push()
-    working_dir = Dir.getwd
-    repo = Git.open(working_dir)
     repo.branches.local.each do |b|
       repo.branch(b).push
     end
@@ -88,8 +79,6 @@ class Dit < Thor
 
   desc "pull", "Pull your changes from a dit repo."
   def pull()
-    working_dir = Dir.getwd
-    repo = Git.open(working_dir)
     repo.pull
   end
 
@@ -166,7 +155,6 @@ class Dit < Thor
         os_changed_files = `git show --pretty="format:" --name-only HEAD`
         os_changed_files.split('\n').each do |file|
           file.strip! # strip newlines
-          p file
           next if os_list.include?(file.split('.').pop())
           next if settings[:symlinked].include?(file) 
           next if file.include?(".dit")
@@ -182,6 +170,14 @@ class Dit < Thor
       f.truncate 0
       f.write settings.to_json
     end
+  end
+  
+  def working_dir
+    Dir.getwd
+  end
+  
+  def repo
+    Git.open(working_dir)
   end
 
 end
