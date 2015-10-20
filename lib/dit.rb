@@ -2,33 +2,35 @@ require 'thor'
 require 'git'
 require 'os'
 require 'json'
+require 'fileutils'
 
-class Dit < Thor
-  desc "init", "Initialize the current directory as a dit directory."
-  def init
-    if(Dir.exist?(working_dir + "/.dit"))
-      p "This is already a dit repo."
+class Dit
+  def self.init
+    if(Dir.exist?(".dit"))
+      puts "This is already a dit repo, so all we have to do is symlink to home."
+      symlink_all
+      hook
       return
-    elsif(Dir.exist?(working_dir + "/.git"))
-      repo = Git.open(working_dir)
+    elsif(Dir.exist?(".git"))
+      repo = Git.open(Dir.getwd)
     else
-      repo = Git.init(working_dir)
-      puts "Initialized empty Git repository in #{File.join(working_dir, ".git")}"
+      repo = Git.init(Dir.getwd)
+      puts "Initialized empty Git repository in #{File.join(Dir.getwd, ".git")}"
     end
 
     # Make a .dit dir and a settings hash to be exported to a file in dit dir
-    Dir.mkdir(working_dir + "/.dit")
+    Dir.mkdir(".dit")
     settings = {}
     
     # create a .gitignore to ignore the os_dotfiles dir
-    File.open(File.join(working_dir, ".gitignore"), "a") do |f|
+    File.open(".gitignore", "a") do |f|
       f.write ".dit/os_dotfiles/"
       f.write "\n"
       f.write ".dit/local_settings.json"
     end
 
     # Write our changes to a JSON file in the dit dir
-    File.open(working_dir + "/.dit" + "/settings.json", "a") do |f|
+    File.open(File.join(".dit", "settings.json"), "a") do |f|
       f.write settings.to_json if settings
     end
 
@@ -37,39 +39,54 @@ class Dit < Thor
     repo.commit("Dit inital commit")
 
     clone_os_dotfiles
-    puts "Initialized empty Dit repository in #{File.join(working_dir, ".dit")})"
+    hook
+
+    puts "Initialized empty Dit repository in #{File.join(Dir.getwd, ".dit")})"
   end
 
-  desc "clone REPO", "Clone a dit repository."
-  def clone(repo)
-    repo_name = repo.split("/").pop().split(".")[0]
-    Git.clone(repo, repo_name) 
-    Dir.chdir(repo_name) do
-      clone_os_dotfiles
-      symlink_all
+  def self.hook
+    return unless Dir.exist?(".dit")
+    Dir.chdir(File.join(".git", "hooks")) do
+      p Dir.getwd
+      FileUtils.rm_rf Dir.glob("*")
+      File.open(("post-commit"), "a") do |f|
+        f.write "#!/usr/bin/env ./.git/hooks/force-ruby\n"
+        f.write "require 'dit'\n"
+        f.write "Dit.symlink_unlinked\n"
+      end
+      File.open(("post-merge"), "a") do |f|
+        f.write "#!/usr/bin/env ./.git/hooks/force-ruby\n"
+        f.write "require 'dit'\n"
+        f.write "Dit.symlink_unlinked\n"
+      end
+      # The following lines are because git hooks do this weird thing
+      # where they prepend /usr/bin to the path and a bunch of other stuff
+      # meaning git hooks will use /usr/bin/ruby instead of any ruby
+      # from rbenv or rvm or chruby, so we make a script forcing the hook
+      # to use our ruby
+      ruby_path = `which ruby`
+      if(ruby_path != "/usr/bin/ruby")
+        ruby_folder = File.dirname(ruby_path)
+        File.open(("force-ruby"), "a") do |f|
+          f.write "#!/usr/bin/env bash\n"
+          f.write "set -e\n"
+          if ENV['RBENV_ROOT']
+            # Use Rbenv's shims
+            # By the way, if anyone has particular PATHs I should use for
+            # RVM or chruby, please let me know!
+            f.write "PATH=#{File.join(ENV['RBENV_ROOT'], "shims")}:$PATH\n"
+          else
+            f.write "PATH=#{ruby_folder}:$PATH\n"
+          end
+          f.write "exec ruby \"$@\"\n"
+        end
+      end
+        
+      FileUtils.chmod '+x', %w(post-commit post-merge force-ruby)
     end
   end
 
-  option :message, :required => true, :aliases => '-m'
-  def commit
-    repo.commit(options[:message])
-    symlink_unlinked
-  end
-
-  desc "pull", "Pull your changes from a dit repo."
-  def pull
-    repo.pull
-    symlink_unlinked # In case there were changed files
-  end
-  
-  desc "rehash", "In case you ran a git command when you should've run a dit command."
-  def rehash
-    symlink_unlinked
-  end
-
-  private
-
-  def clone_os_dotfiles
+  def self.clone_os_dotfiles
     # OS Specific Dotfiles Eventually TM
     file_url = "file:///" + File.absolute_path(Dir.getwd)
     Dir.chdir(".dit") do
@@ -78,7 +95,7 @@ class Dit < Thor
     end
   end
 
-  def symlink_all
+  def self.symlink_all
     Dir.chdir(File.join(repo_name, ".dit", "os_dotfiles")) do
       Find.find('.') do |d|
         if File.directory?(d)
@@ -94,11 +111,11 @@ class Dit < Thor
     end
   end
 
-  def symlink_unlinked
+  def self.symlink_unlinked
     settings = nil
     begin
       settings = JSON.parse File.open(
-        File.join(working_dir, ".dit", "local_settings.json"), "r").read.close
+                  File.join(Dir.getwd, ".dit", "local_settings.json"), "r").read.close
     rescue
       settings = {
         symlinked: []
@@ -122,17 +139,35 @@ class Dit < Thor
       end
     end
 
-    File.open(File.join(working_dir, ".dit", "local_settings.json"), "w+") do |f|
+    File.open(File.join(Dir.getwd, ".dit", "local_settings.json"), "w+") do |f|
       f.truncate 0
       f.write settings.to_json
     end
   end
-  
-  def working_dir
-    Dir.getwd
+
+  private
+
+  def self.repo
+    Git.open(Dir.getwd)
   end
-  
-  def repo
-    Git.open(working_dir)
+
+  def self.os_list
+    [
+      'windows',
+      'osx',
+      'arch',
+      'fedora',
+      'debian',
+      'ubuntu',
+      'slack',
+      'bsd'
+    ]
+  end
+end
+
+class DitCMD < Thor
+  desc "init", "Initialize the current directory as a dit directory."
+  def init
+    Dit.init
   end
 end

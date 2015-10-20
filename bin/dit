@@ -1,4 +1,4 @@
 #!/usr/bin/env ruby
 
 require 'dit'
-Dit.start(ARGV)
+DitCMD.start(ARGV)
