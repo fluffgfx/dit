@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
-  s.name = "Dit"
-  s.version = "0.1"
+  s.name = "dit"
+  s.version = "0.1.1"
   s.date = "2015-10-14"
   s.summary = "Dit is a dotfiles manager that thinks it's git."
   s.description = "Dit is a dotfiles manager that wraps around git and makes " +
@@ -10,7 +10,8 @@ Gem::Specification.new do |s|
   s.executables << 'dit'
   s.license = "MIT"
   s.homepage = "http://github.com/vulpino/dit"
-  s.add_runtime_dependency 'thor'
-  s.add_runtime_dependency 'git'
-  s.add_runtime_dependency 'os'
+  s.email = "hispanic@hush.ai"
+  s.add_runtime_dependency 'thor', '~> 0.19.1'
+  s.add_runtime_dependency 'git', '~> 1.2', '>= 1.2.9'
+  s.add_runtime_dependency 'os', '~> 0.9.6'
 end
