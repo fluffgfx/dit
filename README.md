@@ -1,43 +1,39 @@
 # Dit
 
-Dit is a dotfile manager that thinks it's git.
+Dit is a dotfile manager that hooks into git.
 
-It uses ruby-git and just under 200 lines of code to automatically handle all your dotfiles for you. You can execute basic git commands just as it were a git repo, except dit will also automatically symlink everything to your home dir when you commit, or when you clone an existing dit repo. It's like magic.
+It uses git hooks to automatically run whenever you `git commit` or `git merge`. You just keep working on that dotfiles directory as normal and dit handles the rest.
 
 Windows isn't currently supported due to a conspicious lack of symlinking on windows. Suggestions as to circumvent this restriction are welcome.
 
-## How does it work?
-
-Dit uses all the git commands you're used to.
-
-### Getting started
+## Getting started
 
 Assuming ruby and rubygems are already installed (if not, refer to your various package managers)
 
 `gem install dit`  
 `dit init`
 
-### Importing an existing dotfiles repo
+Then, use your git repository as normal. Any new files will automatically be symlinked to your home directory.
 
-`dit clone [git url]`
+## OS Specific Dotfiles
 
-### Committing your changes
+**This is a planned feature, and is not present in Dit 0.1**
 
-`dit commit -m "Commit Message"`
+Dit also knows this little trick:
 
-### Get the most recent changes
+Given a list of dotfiles
 
-`dit pull`
+- .dotfile
+- .dotfile.arch
+- .dotfile.osx
 
-### There's a file that isn't symlinked to my home dir
+On a Mac OS X computer, your home directory will contain just one dotfile:
 
-`dit rehash`
+- .dotfile
 
-### What about [some git command]?
+which contains both .dotfile and .dotfile.osx (which is appended to the end of the file.)
 
-`git [some git command]`
-
-The beauty of dit is that all it does is layer itself very softly upon git, so anything dit doesn't handle directly doesn't have to be handled by dit - because that's what git is for.
+It works the same way on your arch linux system, except it contains .dotfile.arch instead of the .osx file.
 
 ## Contributing
 
