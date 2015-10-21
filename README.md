@@ -1,5 +1,7 @@
 # Dit
 
+![Dit version](https://img.shields.io/gem/v/dit.svg)
+
 Dit is a dotfile manager that hooks into git.
 
 It uses git hooks to automatically run whenever you `git commit` or `git merge`. You just keep working on that dotfiles directory as normal and dit handles the rest.
