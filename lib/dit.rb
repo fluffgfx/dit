@@ -3,56 +3,35 @@ require 'git'
 require 'os'
 require 'json'
 require 'fileutils'
-require 'find'
 
 class Dit
   def self.init
+    if OS.windows?
+      puts "This is a windows system, and dit does not support windows."
+      puts "See vulpino/dit issue #1 if you have a potential solution."
+      return
+    end
+
     if Dir.exist?(".git")
+      puts "Dit has detected an existing git repo, and will initialize it to " +
+        "populate your ~ directory with symlinks."
+      puts "Please confirm this by typing y, or anything else to cancel."
+      return unless gets.chomp! === 'y'
       symlink_all
     else
       Git.init(Dir.getwd)
       puts "Initialized empty Git repository in #{File.join(Dir.getwd, ".git")}"
     end
-
-    # KISS - Just handle symlinking and git hooks
     hook
-    puts "Hooked in dit"
+    puts "Dit was successfully hooked into .git/hooks."
   end
 
   def self.hook
     Dir.chdir(File.join(".git", "hooks")) do
       # The following check for the existence of post-commit or post-merge hooks
       # and will not interfere with them if they exist and do not use bash.
-      post_commit_hook_exists = File.exist?("post-commit")
-      post_merge_hook_exists = File.exist?("post-merge")
       append_to_post_commit, append_to_post_merge, cannot_post_commit, 
-        cannot_post_merge = nil
-
-      if(post_commit_hook_exists || post_merge_hook_exists)
-        if post_commit_hook_exists
-          if `cat post-commit`.include?("#!/usr/bin/env bash")
-            puts "You have post-commit hooks already that use bash, so we'll " +
-              "append ourselves to the file."
-            append_to_post_commit = true
-          else
-            puts "You have post-commit hooks that use some foreign language, " +
-              "so we won't interfere, but we can't hook in there."
-            cannot_post_commit = true
-          end
-        end
-
-        if post_merge_hook_exists
-          if `cat post-merge`.include?("#!/usr/bin/env bash")
-            puts "You have post-merge hooks already that use bash, so we'll " +
-              "append ourselve to the file."
-            append_to_post_merge = true
-          else
-            puts "You have post-merge hooks that use some not-bash language, " +
-              "so we won't interfere, but we can't hook in there."
-            cannot_post_merge = true
-          end
-        end
-      end
+        cannot_post_merge = detect_existing_hooks
 
       unless cannot_post_commit
         File.open("post-commit", "a") do |f|
@@ -68,8 +47,6 @@ class Dit
         end
       end
 
-      # Both scripts call a dit helper script instead of including the code
-      # directly.
       File.open("dit", "a") do |f|
         f.write "#!/usr/bin/env ./.git/hooks/force-ruby\n"
         f.write "require 'dit'\n"
@@ -108,33 +85,21 @@ class Dit
     end
   end
 
-  def self.symlink_all
-    Find.find('.') do |d|
-      d.gsub './', ''
-      if File.directory?(d)
-        next if d.include?(".git")
-        begin
-          Dir.mkdir(File.join(Dir.home, d.gsub(Dir.getwd, ''))) unless d === '.'
-        rescue
-          puts "Failed to create directory #{d}"
-        end
-        Dir.entries(d).each do |f|
-          next if (f === '.' || f === '..' || File.directory?(f))
-          abs_f = File.absolute_path(f)
-          rel_f = File.join(Dir.home, abs_f.gsub(Dir.getwd, ''))
-          symlink abs_f, rel_f
-        end
-      end
-    end
-  end
-
-  def self.symlink_unlinked
-    changed_files = `git show --pretty="format:" --name-only HEAD`.split("\n")
-    changed_files.each do |f|
+  def self.symlink_list(list)
+    list.each do |f|
       wd_f = File.absolute_path f
       home_f = File.absolute_path(f).gsub(Dir.getwd, Dir.home)
       symlink wd_f, home_f
     end
+  end
+
+  def self.symlink_unlinked
+    symlink_list `git show --pretty="format:" --name-only HEAD`.split("\n")
+  end
+
+  def self.symlink_all
+    current_branch = `git rev-parse --abbrev-ref HEAD`
+    symlink_list `git ls-tree -r #{current_branch} --name-only`.split("\n")
   end
 
   private
@@ -149,6 +114,41 @@ class Dit
     rescue
       puts "Failed to symlink #{a} to #{b}"
     end
+  end
+
+  def self.detect_existing_hooks
+    post_commit_hook_exists = File.exist?("post-commit")
+    post_merge_hook_exists = File.exist?("post-merge")
+
+    cannot_post_commit, append_to_post_commit = false
+    cannot_post_merge, append_to_post_merge = false
+    
+    if post_commit_hook_exists
+      if `cat post-commit`.include?("#!/usr/bin/env bash")
+        puts "You have post-commit hooks already that use bash, so we'll " +
+          "append ourselves to the file."
+        append_to_post_commit = true
+      else
+        puts "You have post-commit hooks that use some foreign language, " +
+          "so we won't interfere, but we can't hook in there."
+        cannot_post_commit = true
+      end
+    end
+
+    if post_merge_hook_exists
+      if `cat post-merge`.include?("#!/usr/bin/env bash")
+        puts "You have post-merge hooks already that use bash, so we'll " +
+          "append ourselve to the file."
+        append_to_post_merge = true
+      else
+        puts "You have post-merge hooks that use some not-bash language, " +
+          "so we won't interfere, but we can't hook in there."
+        cannot_post_merge = true
+      end
+    end
+
+    [append_to_post_commit, append_to_post_merge,
+     cannot_post_commit, cannot_post_merge]
   end
 
 end
