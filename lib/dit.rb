@@ -7,13 +7,14 @@ require 'find'
 
 class Dit
   def self.init
-    unless Dir.exist?(".git")
+    if Dir.exist?(".git")
+      symlink_all
+    else
       Git.init(Dir.getwd)
       puts "Initialized empty Git repository in #{File.join(Dir.getwd, ".git")}"
     end
 
     # KISS - Just handle symlinking and git hooks
-    symlink_all
     hook
     puts "Hooked in dit"
   end
@@ -108,14 +109,12 @@ class Dit
   end
 
   def self.symlink_all
-    errors = 0
     Find.find('.') do |d|
+      d.gsub './', ''
       if File.directory?(d)
-        next if d === '.'
-        puts d
         next if d.include?(".git")
         begin
-          Dir.mkdir(File.join(Dir.home, d.gsub(Dir.getwd, '')))
+          Dir.mkdir(File.join(Dir.home, d.gsub(Dir.getwd, ''))) unless d === '.'
         rescue
           puts "Failed to create directory #{d}"
         end
@@ -123,34 +122,19 @@ class Dit
           next if (f === '.' || f === '..' || File.directory?(f))
           abs_f = File.absolute_path(f)
           rel_f = File.join(Dir.home, abs_f.gsub(Dir.getwd, ''))
-          errors += symlink(abs_f, rel_f)
+          symlink abs_f, rel_f
         end
       end
     end
-    puts "Failed to symlink #{errors.to_s} files." if errors > 0
   end
 
   def self.symlink_unlinked
     changed_files = `git show --pretty="format:" --name-only HEAD`.split("\n")
-    puts changed_files
-    errors = 0
-    Find.find('.') do |d|
-      puts d
-      if File.directory?(d)
-        home_d = File.join Dir.home, File.absolute_path(d).gsub(Dir.getwd, '')
-        Dir.mkdir(home_d) unless (File.directory?(home_d) || d === '.')
-        Dir.entries(d) do |f|
-          next if (f === '.' || f === '..' || File.directory?(f))
-          abs_f = File.absolute_path f
-          rel_f = abs_f.gsub(Dir.getwd, '')
-          puts rel_f
-          next unless changed_files.include?(rel_f)
-          home_f = File.join Dir.home, rel_f
-          errors += symlink(abs_f, home_f)
-        end
-      end
+    changed_files.each do |f|
+      wd_f = File.absolute_path f
+      home_f = File.absolute_path(f).gsub(Dir.getwd, Dir.home)
+      symlink wd_f, home_f
     end
-    puts "Failed to symlink #{errors.to_s} files." if errors > 0
   end
 
   private
@@ -159,13 +143,11 @@ class Dit
     Git.open(Dir.getwd)
   end
 
-  def self.symlink(abs_f, rel_f)
+  def self.symlink(a, b)
     begin
-      File.symlink(abs_f, rel_f)
-      puts "Failed to symlink #{abs_f} to #{rel_f}"
-      return 0
+      File.symlink(a, b)
     rescue
-      return 1
+      puts "Failed to symlink #{a} to #{b}"
     end
   end
 
