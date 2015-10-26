@@ -5,78 +5,79 @@ require 'json'
 require 'fileutils'
 
 class Dit
+  # top level documentation
   def self.init
     if OS.windows?
-      puts "This is a windows system, and dit does not support windows."
-      puts "See vulpino/dit issue #1 if you have a potential solution."
+      puts 'This is a windows system, and dit does not support windows.'
+      puts 'See vulpino/dit issue #1 if you have a potential solution.'
       return
     end
 
-    if Dir.exist?(".git")
-      puts "Dit has detected an existing git repo, and will initialize it to " +
-        "populate your ~ directory with symlinks."
-      puts "Please confirm this by typing y, or anything else to cancel."
+    if Dir.exist?('.git')
+      puts 'Dit has detected an existing git repo, and will initialize it to ' +
+        'populate your ~ directory with symlinks.'
+      puts 'Please confirm this by typing y, or anything else to cancel.'
       response = STDIN.gets.chomp.upcase
-      return unless (response === 'Y')
+      return unless (response == 'Y')
       symlink_all
     else
       Git.init(Dir.getwd)
-      puts "Initialized empty Git repository in #{File.join(Dir.getwd, ".git")}"
+      puts "Initialized empty Git repository in #{File.join(Dir.getwd, '.git')}"
     end
     hook
-    puts "Dit was successfully hooked into .git/hooks."
+    puts 'Dit was successfully hooked into .git/hooks.'
   end
 
   def self.hook
-    Dir.chdir(File.join(".git", "hooks")) do
+    Dir.chdir(File.join('.git', 'hooks')) do
       # The following check for the existence of post-commit or post-merge hooks
       # and will not interfere with them if they exist and do not use bash.
-      append_to_post_commit, append_to_post_merge, cannot_post_commit, 
+      append_to_post_commit, append_to_post_merge, cannot_post_commit,
         cannot_post_merge = detect_existing_hooks
 
       unless cannot_post_commit
-        File.open("post-commit", "a") do |f|
+        File.open('post-commit', 'a') do |f|
           f.write "#!/usr/bin/env bash\n" unless append_to_post_commit
           f.write "( exec ./.git/hooks/dit )\n"
         end
       end
 
       unless cannot_post_merge
-        File.open("post-merge", "a") do |f|
+        File.open('post-merge', 'a') do |f|
           f.write "#!/usr/bin/env bash\n" unless append_to_post_merge
           f.write "( exec ./.git/hooks/dit )\n"
         end
       end
 
-      File.open("dit", "a") do |f|
+      File.open('dit', 'a') do |f|
         f.write "#!/usr/bin/env ./.git/hooks/force-ruby\n"
         f.write "require 'dit'\n"
         f.write "Dit.symlink_unlinked\n"
       end
-        
+
       # The following lines are because git hooks do this weird thing
       # where they prepend /usr/bin to the path and a bunch of other stuff
       # meaning git hooks will use /usr/bin/ruby instead of any ruby
       # from rbenv or rvm or chruby, so we make a script forcing the hook
       # to use our ruby
       ruby_path = `which ruby`
-      if(ruby_path != "/usr/bin/ruby")
+      if ruby_path != '/usr/bin/ruby'
         ruby_folder = File.dirname(ruby_path)
-        File.open("force-ruby", "a") do |f|
+        File.open('force-ruby', 'a') do |f|
           f.write "#!/usr/bin/env bash\n"
           f.write "set -e\n"
           if ENV['RBENV_ROOT']
             # Use Rbenv's shims instead of directly going to ruby bin
             # By the way, if anyone has particular PATHs I should use for
             # RVM or chruby, please let me know!
-            f.write "PATH=#{File.join(ENV['RBENV_ROOT'], "shims")}:$PATH\n"
+            f.write "PATH=#{File.join(ENV['RBENV_ROOT'], 'shims')}:$PATH\n"
           else
             f.write "PATH=#{ruby_folder}:$PATH\n"
           end
           f.write "exec ruby \"$@\"\n"
         end
       else
-        File.open("force-ruby", "a") do |f|
+        File.open('force-ruby', 'a') do |f|
           f.write "#!/usr/bin/env bash\n"
           f.write "exec ruby \"$@\"\n"
         end
@@ -105,52 +106,48 @@ class Dit
     symlink_list `git ls-tree -r #{current_branch} --name-only`.split("\n")
   end
 
-  private
-
   def self.repo
     Git.open(Dir.getwd)
   end
 
   def self.symlink(a, b)
-    begin
-      File.symlink(a, b)
-    rescue
-      puts "Failed to symlink #{a} to #{b}"
-    end
+    File.symlink(a, b)
+  rescue
+    puts "Failed to symlink #{a} to #{b}"
   end
 
   def self.detect_existing_hooks
-    post_commit_hook_exists = File.exist?("post-commit")
-    post_merge_hook_exists = File.exist?("post-merge")
+    post_commit_hook_exists = File.exist?('post-commit')
+    post_merge_hook_exists = File.exist?('post-merge')
 
     cannot_post_commit, append_to_post_commit = false
     cannot_post_merge, append_to_post_merge = false
-    
+
     if post_commit_hook_exists
-      if `cat post-commit`.include?("#!/usr/bin/env bash")
-        puts "You have post-commit hooks already that use bash, so we'll " +
-          "append ourselves to the file."
-        append_to_post_commit = true
-      elsif `cat post-commit`.include?("./.git/hooks/dit")
-        puts "Dit hook already installed."
+      if `cat post-commit`.include?('./.git/hooks/dit')
+        puts 'Dit hook already installed.'
         cannot_post_commit = true
+      elsif `cat post-commit`.include?('#!/usr/bin/env bash')
+        puts "You have post-commit hooks already that use bash, so we'll " +
+          'append ourselves to the file.'
+        append_to_post_commit = true
       else
-        puts "You have post-commit hooks that use some foreign language, " +
+        puts 'You have post-commit hooks that use some foreign language, ' +
           "so we won't interfere, but we can't hook in there."
         cannot_post_commit = true
       end
     end
 
     if post_merge_hook_exists
-      if `cat post-merge`.include?("#!/usr/bin/env bash")
+      if `cat post-merge`.include?('#!/usr/bin/env bash')
         puts "You have post-merge hooks already that use bash, so we'll " +
-          "append ourselve to the file."
+          'append ourselve to the file.'
         append_to_post_merge = true
-      elsif `cat post-commit`.include?("./.git/hooks/dit")
-        puts "Dit hook already installed."
+      elsif `cat post-commit`.include?('./.git/hooks/dit')
+        puts 'Dit hook already installed.'
         cannot_post_commit = true
       else
-        puts "You have post-merge hooks that use some not-bash language, " +
+        puts 'You have post-merge hooks that use some not-bash language, ' +
           "so we won't interfere, but we can't hook in there."
         cannot_post_merge = true
       end
@@ -159,16 +156,15 @@ class Dit
     [append_to_post_commit, append_to_post_merge,
      cannot_post_commit, cannot_post_merge]
   end
-
 end
 
 class DitCMD < Thor
-  desc "init", "Initialize the current directory as a dit directory."
+  desc 'init', 'Initialize the current directory as a dit directory.'
   def init
     Dit.init
   end
 
-  desc "rehash", "Manually symlink everything in case a git hook didn't run."
+  desc 'rehash', "Manually symlink everything in case a git hook didn't run."
   def rehash
     Dit.symlink_all
   end
