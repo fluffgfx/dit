@@ -16,7 +16,8 @@ class Dit
       puts "Dit has detected an existing git repo, and will initialize it to " +
         "populate your ~ directory with symlinks."
       puts "Please confirm this by typing y, or anything else to cancel."
-      return unless gets.chomp! === 'y'
+      response = STDIN.gets.chomp.upcase
+      return unless (response === 'Y')
       symlink_all
     else
       Git.init(Dir.getwd)
@@ -80,6 +81,7 @@ class Dit
           f.write "exec ruby \"$@\"\n"
         end
       end
+
       # Make sure they're executable
       FileUtils.chmod '+x', %w(post-commit post-merge dit force-ruby)
     end
@@ -87,6 +89,7 @@ class Dit
 
   def self.symlink_list(list)
     list.each do |f|
+      f.strip!
       wd_f = File.absolute_path f
       home_f = File.absolute_path(f).gsub(Dir.getwd, Dir.home)
       symlink wd_f, home_f
@@ -98,7 +101,7 @@ class Dit
   end
 
   def self.symlink_all
-    current_branch = `git rev-parse --abbrev-ref HEAD`
+    current_branch = `git rev-parse --abbrev-ref HEAD`.chomp
     symlink_list `git ls-tree -r #{current_branch} --name-only`.split("\n")
   end
 
@@ -128,6 +131,9 @@ class Dit
         puts "You have post-commit hooks already that use bash, so we'll " +
           "append ourselves to the file."
         append_to_post_commit = true
+      elsif `cat post-commit`.include?("./.git/hooks/dit")
+        puts "Dit hook already installed."
+        cannot_post_commit = true
       else
         puts "You have post-commit hooks that use some foreign language, " +
           "so we won't interfere, but we can't hook in there."
@@ -140,6 +146,9 @@ class Dit
         puts "You have post-merge hooks already that use bash, so we'll " +
           "append ourselve to the file."
         append_to_post_merge = true
+      elsif `cat post-commit`.include?("./.git/hooks/dit")
+        puts "Dit hook already installed."
+        cannot_post_commit = true
       else
         puts "You have post-merge hooks that use some not-bash language, " +
           "so we won't interfere, but we can't hook in there."
