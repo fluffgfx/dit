@@ -35,19 +35,8 @@ class Dit
       append_to_post_commit, append_to_post_merge, cannot_post_commit,
         cannot_post_merge = detect_existing_hooks
 
-      unless cannot_post_commit
-        File.open('post-commit', 'a') do |f|
-          f.write "#!/usr/bin/env bash\n" unless append_to_post_commit
-          f.write "( exec ./.git/hooks/dit )\n"
-        end
-      end
-
-      unless cannot_post_merge
-        File.open('post-merge', 'a') do |f|
-          f.write "#!/usr/bin/env bash\n" unless append_to_post_merge
-          f.write "( exec ./.git/hooks/dit )\n"
-        end
-      end
+      add_hook('post_commit', append_to_post_commit) unless cannot_post_commit
+      add_hook('post_merge', append_to_post_merge) unless cannot_post_merge
 
       File.open('dit', 'a') do |f|
         f.write "#!/usr/bin/env ./.git/hooks/force-ruby\n"
@@ -155,6 +144,13 @@ class Dit
 
     [append_to_post_commit, append_to_post_merge,
      cannot_post_commit, cannot_post_merge]
+  end
+
+  def self.write_hook(hook_file, do_append)
+    File.open(hook_file, 'a') do |f|
+      f.write "#!/usr/bin/env bash\n" unless do_append
+      f.write "( exec ./.git/hooks/dit )\n"
+    end
   end
 end
 
