@@ -171,6 +171,6 @@ class DitCMD < Thor
 
   desc 'version', 'Print the dit version.'
   def version
-    'Dit #{Dit.version} on ruby #{RUBY_VERSION}'
+    puts "Dit #{Dit.version} on ruby #{RUBY_VERSION}"
   end
 end
