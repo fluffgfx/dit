@@ -4,41 +4,52 @@ require 'os'
 require 'json'
 require 'fileutils'
 
+# This is the class where all the dit work is done.
+# The thor class is basically a very thin layer on top of this that just
+# calls its methods directly.
+# This is because the hooks are not running through the Thor object, but also
+# referencing these methods.
 class Dit
-  # This is the class where all the dit work is done.
-  # The thor class is basically a very thin layer on top of this that just
-  # calls its methods directly.
   def self.init
-    if OS.windows?
-      puts 'This is a windows system, and dit does not support windows.'
-      puts 'See vulpino/dit issue #1 if you have a potential solution.'
-      return
-    end
+    exit_if_windows
 
     if Dir.exist?('.git')
-      puts 'Dit has detected an existing git repo, and will initialize it to ' +
-        'populate your ~ directory with symlinks.'
-      puts 'Please confirm this by typing y, or anything else to cancel.'
-      response = STDIN.gets.chomp.upcase
-      return unless (response == 'Y')
-      symlink_all
+      symlink_all if prompt_for_symlink_all
     else
       Git.init(Dir.getwd)
       puts "Initialized empty Git repository in #{File.join(Dir.getwd, '.git')}"
     end
+
     hook
+
     puts 'Dit was successfully hooked into .git/hooks.'
+  end
+
+  def self.exit_if_windows
+    if OS.windows?
+      puts 'This is a windows system, and dit does not support windows.'
+      puts 'See vulpino/dit issue #1 if you have a potential solution.'
+      exit 1
+    end
+  end
+
+  def self.prompt_for_symlink_all
+    puts 'Dit has detected an existing git repo, and will initialize it to ' +
+      'populate your ~ directory with symlinks.'
+    puts 'Please confirm this by typing y, or anything else to cancel.'
+    response = STDIN.gets.chomp.upcase
+    response == 'Y'
   end
 
   def self.hook
     Dir.chdir(File.join('.git', 'hooks')) do
       # The following check for the existence of post-commit or post-merge hooks
       # and will not interfere with them if they exist and do not use bash.
-      append_to_post_commit, cannot_post_commit = hook 'post-commit'
-      append_to_post_merge, cannot_post_merge = hook 'post-merge'
+      append_to_post_commit, cannot_post_commit = detect_hook 'post-commit'
+      append_to_post_merge, cannot_post_merge = detect_hook 'post-merge'
 
-      add_hook('post-commit', append_to_post_commit) unless cannot_post_commit
-      add_hook('post-merge', append_to_post_merge) unless cannot_post_merge
+      write_hook('post-commit', append_to_post_commit) unless cannot_post_commit
+      write_hook('post-merge', append_to_post_merge) unless cannot_post_merge
 
       make_dit
       make_ruby_enforcer
@@ -76,24 +87,22 @@ class Dit
     puts "Failed to symlink #{a} to #{b}"
   end
 
-  def self.detect_existing_hook(hook)
-    hook_exists = File.exist?(hook)
+  def self.detect_hook(hook)
+    return [false, false] unless File.exist?(hook)
 
     cannot_hook, append_to_hook = false
 
-    if hook_exists
-      if `cat #{hook}`.include?('./.git/hooks/dit')
-        puts 'Dit hook already installed.'
-        cannot_hook = true
-      elsif `cat #{hook}`.include?('#!/usr/bin/env bash')
-        puts "You have #{hook} hooks already that use bash, so we'll " +
-          'append ourselves to the file.'
-        append_to_hook = true
-      else
-        puts "You have #{hook} hooks that use some foreign language, " +
-          "so we won't interfere, but we can't hook in there."
-        cannot_hook = true
-      end
+    if `cat #{hook}`.include?('./.git/hooks/dit')
+      puts 'Dit hook already installed.'
+      cannot_hook = true
+    elsif `cat #{hook}`.include?('#!/usr/bin/env bash')
+      puts "You have #{hook} hooks already that use bash, so we'll " +
+        'append ourselves to the file.'
+      append_to_hook = true
+    else
+      puts "You have #{hook} hooks that use some foreign language, " +
+        "so we won't interfere, but we can't hook in there."
+      cannot_hook = true
     end
 
     [append_to_hook, cannot_hook]
@@ -143,6 +152,10 @@ class Dit
       end
     end
   end
+
+  def self.version
+    '0.2.3'
+  end
 end
 
 class DitCMD < Thor
@@ -154,5 +167,10 @@ class DitCMD < Thor
   desc 'rehash', "Manually symlink everything in case a git hook didn't run."
   def rehash
     Dit.symlink_all
+  end
+
+  desc 'version', 'Print the dit version.'
+  def version
+    'Dit #{Dit.version} on ruby #{RUBY_VERSION}'
   end
 end
