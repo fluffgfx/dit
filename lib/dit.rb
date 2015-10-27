@@ -5,7 +5,9 @@ require 'json'
 require 'fileutils'
 
 class Dit
-  # top level documentation
+  # This is the class where all the dit work is done.
+  # The thor class is basically a very thin layer on top of this that just
+  # calls its methods directly.
   def self.init
     if OS.windows?
       puts 'This is a windows system, and dit does not support windows.'
@@ -32,45 +34,14 @@ class Dit
     Dir.chdir(File.join('.git', 'hooks')) do
       # The following check for the existence of post-commit or post-merge hooks
       # and will not interfere with them if they exist and do not use bash.
-      append_to_post_commit, append_to_post_merge, cannot_post_commit,
-        cannot_post_merge = detect_existing_hooks
+      append_to_post_commit, cannot_post_commit = hook 'post-commit'
+      append_to_post_merge, cannot_post_merge = hook 'post-merge'
 
-      add_hook('post_commit', append_to_post_commit) unless cannot_post_commit
-      add_hook('post_merge', append_to_post_merge) unless cannot_post_merge
+      add_hook('post-commit', append_to_post_commit) unless cannot_post_commit
+      add_hook('post-merge', append_to_post_merge) unless cannot_post_merge
 
-      File.open('dit', 'a') do |f|
-        f.write "#!/usr/bin/env ./.git/hooks/force-ruby\n"
-        f.write "require 'dit'\n"
-        f.write "Dit.symlink_unlinked\n"
-      end
-
-      # The following lines are because git hooks do this weird thing
-      # where they prepend /usr/bin to the path and a bunch of other stuff
-      # meaning git hooks will use /usr/bin/ruby instead of any ruby
-      # from rbenv or rvm or chruby, so we make a script forcing the hook
-      # to use our ruby
-      ruby_path = `which ruby`
-      if ruby_path != '/usr/bin/ruby'
-        ruby_folder = File.dirname(ruby_path)
-        File.open('force-ruby', 'a') do |f|
-          f.write "#!/usr/bin/env bash\n"
-          f.write "set -e\n"
-          if ENV['RBENV_ROOT']
-            # Use Rbenv's shims instead of directly going to ruby bin
-            # By the way, if anyone has particular PATHs I should use for
-            # RVM or chruby, please let me know!
-            f.write "PATH=#{File.join(ENV['RBENV_ROOT'], 'shims')}:$PATH\n"
-          else
-            f.write "PATH=#{ruby_folder}:$PATH\n"
-          end
-          f.write "exec ruby \"$@\"\n"
-        end
-      else
-        File.open('force-ruby', 'a') do |f|
-          f.write "#!/usr/bin/env bash\n"
-          f.write "exec ruby \"$@\"\n"
-        end
-      end
+      make_dit
+      make_ruby_enforcer
 
       # Make sure they're executable
       FileUtils.chmod '+x', %w(post-commit post-merge dit force-ruby)
@@ -105,51 +76,71 @@ class Dit
     puts "Failed to symlink #{a} to #{b}"
   end
 
-  def self.detect_existing_hooks
-    post_commit_hook_exists = File.exist?('post-commit')
-    post_merge_hook_exists = File.exist?('post-merge')
+  def self.detect_existing_hook(hook)
+    hook_exists = File.exist?(hook)
 
-    cannot_post_commit, append_to_post_commit = false
-    cannot_post_merge, append_to_post_merge = false
+    cannot_hook, append_to_hook = false
 
-    if post_commit_hook_exists
-      if `cat post-commit`.include?('./.git/hooks/dit')
+    if hook_exists
+      if `cat #{hook}`.include?('./.git/hooks/dit')
         puts 'Dit hook already installed.'
-        cannot_post_commit = true
-      elsif `cat post-commit`.include?('#!/usr/bin/env bash')
-        puts "You have post-commit hooks already that use bash, so we'll " +
+        cannot_hook = true
+      elsif `cat #{hook}`.include?('#!/usr/bin/env bash')
+        puts "You have #{hook} hooks already that use bash, so we'll " +
           'append ourselves to the file.'
-        append_to_post_commit = true
+        append_to_hook = true
       else
-        puts 'You have post-commit hooks that use some foreign language, ' +
+        puts "You have #{hook} hooks that use some foreign language, " +
           "so we won't interfere, but we can't hook in there."
-        cannot_post_commit = true
+        cannot_hook = true
       end
     end
 
-    if post_merge_hook_exists
-      if `cat post-merge`.include?('#!/usr/bin/env bash')
-        puts "You have post-merge hooks already that use bash, so we'll " +
-          'append ourselve to the file.'
-        append_to_post_merge = true
-      elsif `cat post-commit`.include?('./.git/hooks/dit')
-        puts 'Dit hook already installed.'
-        cannot_post_commit = true
-      else
-        puts 'You have post-merge hooks that use some not-bash language, ' +
-          "so we won't interfere, but we can't hook in there."
-        cannot_post_merge = true
-      end
-    end
-
-    [append_to_post_commit, append_to_post_merge,
-     cannot_post_commit, cannot_post_merge]
+    [append_to_hook, cannot_hook]
   end
 
   def self.write_hook(hook_file, do_append)
     File.open(hook_file, 'a') do |f|
       f.write "#!/usr/bin/env bash\n" unless do_append
       f.write "( exec ./.git/hooks/dit )\n"
+    end
+  end
+
+  def self.make_dit
+    File.open('dit', 'a') do |f|
+      f.write "#!/usr/bin/env ./.git/hooks/force-ruby\n"
+      f.write "require 'dit'\n"
+      f.write "Dit.symlink_unlinked\n"
+    end
+  end
+
+  def self.make_ruby_enforcer
+    # The following lines are because git hooks do this weird thing
+    # where they prepend /usr/bin to the path and a bunch of other stuff
+    # meaning git hooks will use /usr/bin/ruby instead of any ruby
+    # from rbenv or rvm or chruby, so we make a script forcing the hook
+    # to use our ruby
+    ruby_path = `which ruby`
+    if ruby_path != '/usr/bin/ruby'
+      ruby_folder = File.dirname(ruby_path)
+      File.open('force-ruby', 'a') do |f|
+        f.write "#!/usr/bin/env bash\n"
+        f.write "set -e\n"
+        if ENV['RBENV_ROOT']
+          # Use Rbenv's shims instead of directly going to ruby bin
+          # By the way, if anyone has particular PATHs I should use for
+          # RVM or chruby, please let me know!
+          f.write "PATH=#{File.join(ENV['RBENV_ROOT'], 'shims')}:$PATH\n"
+        else
+          f.write "PATH=#{ruby_folder}:$PATH\n"
+        end
+        f.write "exec ruby \"$@\"\n"
+      end
+    else
+      File.open('force-ruby', 'a') do |f|
+        f.write "#!/usr/bin/env bash\n"
+        f.write "exec ruby \"$@\"\n"
+      end
     end
   end
 end

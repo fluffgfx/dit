@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = "dit"
-  s.version = "0.2.1"
+  s.version = "0.2.2"
   s.date = "2015-10-21"
   s.summary = "Dit is a dotfiles manager that thinks it's git."
   s.description = "Dit is a dotfiles manager that wraps around git and makes " +
