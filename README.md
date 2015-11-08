@@ -13,6 +13,7 @@ Windows isn't currently supported due to a conspicious lack of symlinking on win
 Assuming ruby and rubygems are already installed (if not, refer to your various package managers)
 
 `gem install dit`  
+`cd ~/my_dotfiles`  
 `dit init`
 
 Then, use your git repository as normal. Any new files will automatically be symlinked to your home directory.
