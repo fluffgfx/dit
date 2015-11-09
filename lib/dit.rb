@@ -153,6 +153,29 @@ class Dit
     end
   end
 
+  def self.clean_home(destructive)
+    workingdir = Dir.getwd
+    Dir.chdir(Dir.home) do
+      existing_dotfiles = Dir.glob(File.join("**", ".*"))
+      amount = 0
+      existing_dotfiles.each do |f|
+        if File.symlink?(f)
+          f_abs = File.readlink(f)
+          if File.exists?(f_abs)
+            next if f_abs.include?(workingdir)
+            destructive ? File.delete(f) : FileUtils.mv(f, f+".old")
+          else
+            File.delete(f)
+          end
+        else
+          destructive ? File.delete(f) : FileUtils.mv(f, f+".old")
+        end
+        amount += 1
+      end
+    end
+    puts "Cleaned #{amount.to_s} existing dotfiles."
+  end
+
   def self.version
     '0.3'
   end
@@ -172,5 +195,11 @@ class DitCMD < Thor
   desc 'version', 'Print the dit version.'
   def version
     puts "Dit #{Dit.version} on ruby #{RUBY_VERSION}"
+  end
+
+  desc 'clean', 'Clean existing dotfiles from your home dir.'
+  option :destructive, :type => :boolean, :aliases => 'd'
+  def clean
+    Dit.clean_home(options[:destructive])
   end
 end
