@@ -82,6 +82,11 @@ class Dit
   end
 
   def self.symlink(a, b)
+    if File.exist?(b)
+      (return if File.readlink(b).include(Dir.getwd)) if File.symlink?(b)
+      puts "#{b} conflicts with #{a}. Remove #{b}? [yN]"
+      return unless STDIN.gets.upcase == 'Y'
+    end
     File.symlink(a, b)
   rescue
     puts "Failed to symlink #{a} to #{b}"
@@ -153,27 +158,17 @@ class Dit
     end
   end
 
-  def self.clean_home(destructive)
-    workingdir = Dir.getwd
+  def self.clean_home
     Dir.chdir(Dir.home) do
-      existing_dotfiles = Dir.glob(File.join("**", ".*"))
-      amount = 0
+      existing_dotfiles = Dir.glob('.*')
       existing_dotfiles.each do |f|
+        next if f == '.' || f == '..'
         if File.symlink?(f)
           f_abs = File.readlink(f)
-          if File.exists?(f_abs)
-            next if f_abs.include?(workingdir)
-            destructive ? File.delete(f) : FileUtils.mv(f, f+".old")
-          else
-            File.delete(f)
-          end
-        else
-          destructive ? File.delete(f) : FileUtils.mv(f, f+".old")
+          File.delete(f) if !File.exist?(f_abs)
         end
-        amount += 1
       end
     end
-    puts "Cleaned #{amount.to_s} existing dotfiles."
   end
 
   def self.version
@@ -197,9 +192,8 @@ class DitCMD < Thor
     puts "Dit #{Dit.version} on ruby #{RUBY_VERSION}"
   end
 
-  desc 'clean', 'Clean existing dotfiles from your home dir.'
-  option :destructive, :type => :boolean, :aliases => 'd'
+  desc 'clean', 'Clean dead symlinks from your home dir.'
   def clean
-    Dit.clean_home(options[:destructive])
+    Dit.clean_home
   end
 end
