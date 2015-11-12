@@ -1,8 +1,8 @@
 require 'thor'
 require 'git'
 require 'os'
-require 'json'
 require 'fileutils'
+require 'set'
 
 # This is the class where all the dit work is done.
 # The thor class is basically a very thin layer on top of this that just
@@ -60,8 +60,16 @@ class Dit
   end
 
   def self.symlink_list(list)
+    puts list.to_s
+    root_list = Set.new []
     list.each do |f|
       f.strip!
+      root = f.split('/')[0]
+      root ||= f
+      root_list = root_list | Set[root]
+    end
+    puts root_list.to_a.to_s
+    root_list.to_a.each do |f|
       wd_f = File.absolute_path f
       home_f = File.absolute_path(f).gsub(Dir.getwd, Dir.home)
       symlink wd_f, home_f
@@ -75,10 +83,6 @@ class Dit
   def self.symlink_all
     current_branch = `git rev-parse --abbrev-ref HEAD`.chomp
     symlink_list `git ls-tree -r #{current_branch} --name-only`.split("\n")
-  end
-
-  def self.repo
-    Git.open(Dir.getwd)
   end
 
   def self.symlink(a, b)
@@ -165,7 +169,7 @@ class Dit
         next if f == '.' || f == '..'
         if File.symlink?(f)
           f_abs = File.readlink(f)
-          File.delete(f) if !File.exist?(f_abs)
+          File.delete(f) unless File.exist?(f_abs)
         end
       end
     end
