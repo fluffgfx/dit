@@ -60,7 +60,6 @@ class Dit
   end
 
   def self.symlink_list(list)
-    puts list.to_s
     root_list = Set.new []
     list.each do |f|
       f.strip!
@@ -68,7 +67,7 @@ class Dit
       root ||= f
       root_list = root_list | Set[root]
     end
-    puts root_list.to_a.to_s
+    root_list.delete?('')
     root_list.to_a.each do |f|
       wd_f = File.absolute_path f
       home_f = File.absolute_path(f).gsub(Dir.getwd, Dir.home)
