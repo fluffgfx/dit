@@ -60,7 +60,7 @@ class Dit
   end
 
   def self.symlink_list(list)
-    root_list = Set.new []
+    root_list = Set[]
     list.each do |f|
       f.strip!
       root = f.split('/')[0]
@@ -68,7 +68,7 @@ class Dit
       root_list = root_list | Set[root]
     end
     root_list.delete?('')
-    root_list.to_a.each do |f|
+    root_list.each do |f|
       wd_f = File.absolute_path f
       home_f = File.absolute_path(f).gsub(Dir.getwd, Dir.home)
       symlink wd_f, home_f
@@ -86,9 +86,10 @@ class Dit
 
   def self.symlink(a, b)
     if File.exist?(b)
-      (return if File.readlink(b).include(Dir.getwd)) if File.symlink?(b)
+      return if (File.symlink?(b) && File.readlink(b).include(Dir.getwd))
       puts "#{b} conflicts with #{a}. Remove #{b}? [yN]"
-      return unless STDIN.gets.upcase == 'Y'
+      response = STDIN.gets.upcase
+      return unless response == 'Y'
     end
     File.symlink(a, b)
   rescue
