@@ -2,7 +2,7 @@ require 'date'
 
 Gem::Specification.new do |s|
   s.name = 'dit'
-  s.version = '0.3'
+  s.version = '0.4'
   s.date = Date.today.strftime('%Y-%m-%d')
   s.summary = "Dit is a dotfiles manager that thinks it's git."
   s.description = 'Dit is a dotfiles manager that wraps around git and makes ' \

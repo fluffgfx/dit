@@ -60,6 +60,15 @@ class Dit
   end
 
   def self.symlink_list(list)
+    list = get_roots list
+    list.each do |f|
+      wd_f = File.absolute_path f
+      home_f = File.absolute_path(f).gsub(Dir.getwd, Dir.home)
+      symlink wd_f, home_f
+    end
+  end
+
+  def self.get_roots(list)
     root_list = Set[]
     list.each do |f|
       f.strip!
@@ -68,11 +77,7 @@ class Dit
       root_list = root_list | Set[root]
     end
     root_list.delete?('')
-    root_list.each do |f|
-      wd_f = File.absolute_path f
-      home_f = File.absolute_path(f).gsub(Dir.getwd, Dir.home)
-      symlink wd_f, home_f
-    end
+    root_list # because that line returns nil if there is no empty string
   end
 
   def self.symlink_unlinked
@@ -86,14 +91,32 @@ class Dit
 
   def self.symlink(a, b)
     if File.exist?(b)
-      return if (File.symlink?(b) && File.readlink(b).include(Dir.getwd))
-      puts "#{b} conflicts with #{a}. Remove #{b}? [yN]"
-      response = STDIN.gets.upcase
-      return unless response == 'Y'
+      return if File.symlink?(b) && File.readlink(b).include?(Dir.getwd)
+      return unless prompt_for_overwrite a, b
     end
     File.symlink(a, b)
   rescue
     puts "Failed to symlink #{a} to #{b}"
+  end
+
+  def self.prompt_for_overwrite(a, b)
+    return false if @never
+    (FileUtils.rm(b); return true) if @always # just this once;
+    puts "#{b} conflicts with #{a}. Remove #{b}? [y/n/a/s]"
+    puts "To always overwrite, type \"A\". To never overwrite, type \"S\""
+    response = STDIN.gets.upcase
+    case response
+    when 'Y'
+      FileUtils.rm(b)
+      return true
+    when 'A'
+      @always = true
+      FileUtils.rm(b)
+      return true
+    when 'S'
+      @never = true
+    end
+    false
   end
 
   def self.detect_hook(hook)
@@ -144,14 +167,7 @@ class Dit
       File.open('force-ruby', 'a') do |f|
         f.write "#!/usr/bin/env bash\n"
         f.write "set -e\n"
-        if ENV['RBENV_ROOT']
-          # Use Rbenv's shims instead of directly going to ruby bin
-          # By the way, if anyone has particular PATHs I should use for
-          # RVM or chruby, please let me know!
-          f.write "PATH=#{File.join(ENV['RBENV_ROOT'], 'shims')}:$PATH\n"
-        else
-          f.write "PATH=#{ruby_folder}:$PATH\n"
-        end
+        f.write "PATH=#{ruby_folder}:$PATH\n"
         f.write "exec ruby \"$@\"\n"
       end
     else
@@ -176,10 +192,12 @@ class Dit
   end
 
   def self.version
-    '0.3'
+    '0.4'
   end
 end
 
+# This is the thor class the CLI calls.
+# It's a thin layer on top of the Dit class. See above.
 class DitCMD < Thor
   desc 'init', 'Initialize the current directory as a dit directory.'
   def init
