@@ -62,8 +62,8 @@ class Dit
   def self.symlink_list(list)
     list = get_roots list
     list.each do |f|
-      wd_f = File.absolute_path f
-      home_f = File.absolute_path(f).gsub(Dir.getwd, Dir.home)
+      wd_f = File.expand_path f
+      home_f = File.expand_path(f).gsub(Dir.getwd, Dir.home)
       symlink wd_f, home_f
     end
   end
@@ -74,7 +74,7 @@ class Dit
       f.strip!
       root = f.split('/')[0]
       root ||= f
-      root_list = root_list | Set[root]
+      root_list |= Set[root]
     end
     root_list.delete?('')
     root_list # because that line returns nil if there is no empty string
