@@ -34,7 +34,7 @@ class Dit
   end
 
   def self.prompt_for_symlink_all
-    puts 'Dit has detected an existing git repo, and will initialize it to ' +
+    puts 'Dit has detected an existing git repo, and will initialize it to ' \
       'populate your ~ directory with symlinks.'
     puts 'Please confirm this by typing y, or anything else to cancel.'
     response = STDIN.gets.chomp.upcase
@@ -105,11 +105,11 @@ class Dit
       puts 'Dit hook already installed.'
       cannot_hook = true
     elsif `cat #{hook}`.include?('#!/usr/bin/env bash')
-      puts "You have #{hook} hooks already that use bash, so we'll " +
+      puts "You have #{hook} hooks already that use bash, so we'll " \
         'append ourselves to the file.'
       append_to_hook = true
     else
-      puts "You have #{hook} hooks that use some foreign language, " +
+      puts "You have #{hook} hooks that use some foreign language, " \
         "so we won't interfere, but we can't hook in there."
       cannot_hook = true
     end
