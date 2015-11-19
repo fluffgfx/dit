@@ -142,16 +142,16 @@ class Dit
 
   def self.write_hook(hook_file, do_append)
     File.open(hook_file, 'a') do |f|
-      f.write "#!/usr/bin/env bash\n" unless do_append
-      f.write "( exec ./.git/hooks/dit )\n"
+      f.puts "#!/usr/bin/env bash" unless do_append
+      f.puts "( exec ./.git/hooks/dit )"
     end
   end
 
   def self.make_dit
     File.open('dit', 'a') do |f|
-      f.write "#!/usr/bin/env ./.git/hooks/force-ruby\n"
-      f.write "require 'dit'\n"
-      f.write "Dit.symlink_unlinked\n"
+      f.puts "#!/usr/bin/env ./.git/hooks/force-ruby"
+      f.puts "require 'dit'"
+      f.puts "Dit.symlink_unlinked"
     end
   end
 
@@ -165,15 +165,15 @@ class Dit
     if ruby_path != '/usr/bin/ruby'
       ruby_folder = File.dirname(ruby_path)
       File.open('force-ruby', 'a') do |f|
-        f.write "#!/usr/bin/env bash\n"
-        f.write "set -e\n"
-        f.write "PATH=#{ruby_folder}:$PATH\n"
-        f.write "exec ruby \"$@\"\n"
+        f.puts "#!/usr/bin/env bash"
+        f.puts "set -e"
+        f.puts "PATH=#{ruby_folder}:$PATH"
+        f.puts "exec ruby \"$@\""
       end
     else
       File.open('force-ruby', 'a') do |f|
-        f.write "#!/usr/bin/env bash\n"
-        f.write "exec ruby \"$@\"\n"
+        f.puts "#!/usr/bin/env bash"
+        f.puts "exec ruby \"$@\""
       end
     end
   end
