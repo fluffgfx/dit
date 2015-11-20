@@ -77,7 +77,8 @@ class Dit
       root_list |= Set[root]
     end
     root_list.delete?('')
-    root_list # because that line returns nil if there is no empty string
+    %w(.gitignore README.md README).each { |i| root_list.delete(i) }
+    root_list 
   end
 
   def self.symlink_unlinked
